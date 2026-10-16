@@ -1,0 +1,47 @@
+# Place at the project root: patient-management/docker-compose.yml
+# Start:  docker compose up --build -d
+# Logs:   docker compose logs -f patient-service
+# Stop:   docker compose down        (add -v to also wipe the database)
+
+services:
+  patient-service-db:
+    image: postgres:17
+    container_name: patient-service-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5000:5432"
+    volumes:
+      - patient-service-db-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    ports:
+      - "4000:4000"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://patient-service-db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: always
+    depends_on:
+      patient-service-db:
+        condition: service_healthy
+    networks:
+      - internal
+
+volumes:
+  patient-service-db-data:
+
+networks:
+  internal:
